@@ -1,0 +1,31 @@
+---
+- hosts: localhost
+  tasks:
+    - name: Define variable in task.
+      shell: cat filename.txt
+      register : BUILD_LATEST
+    - debug:
+        var: BUILD_LATEST.stdout_lines[0]
+    - file:
+       # name variable contains the project name
+       path: /home/train/Downloads/apache-tomcat-9.0.30/webapps/{{name}}
+       state: absent
+       name: "remove existing extracted war"
+    - get_url:
+       # name variable contains the project name
+       dest: /home/train/Downloads/apache-tomcat-9.0.30/webapps/{{name}}.war
+       force: true
+       url: "{{ BUILD_LATEST.stdout_lines[0]}}"
+    - name: Stop any existing docker tomcat containers
+      shell: "docker stop $(docker ps -q) || true"
+    - name: Remove containers
+      shell: "docker rm $(docker ps --filter status=exited -q) || true"
+    - name: Start docker containers for tomcat, port1 is the variable received from jenkins job
+      shell: "docker run -d -p {{port1}}:8080 --name=tomcat1 tomcat:8-jdk8-openjdk"
+    - name: Start docker containers for tomcat, port2 is the variable received from jenkins job
+      shell: "docker run -d -p {{port2}}:8080 --name=tomcat2 tomcat:8-jdk8-openjdk"
+    - name: Copy the build to the docker staging server (container id) DOCKER_CONT_ID; name is the project name
+      shell: "docker cp /home/train/Downloads/apache-tomcat-9.0.30/webapps/{{name}}.war tomcat1:/usr/local/tomcat/webapps"
+    - name: Copy the build to the docker staging server (container id) DOCKER_CONT_ID; name is the project name
+      shell: "docker cp /home/train/Downloads/apache-tomcat-9.0.30/webapps/{{name}}.war tomcat2:/usr/local/tomcat/webapps"
+
